@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ambil Absensi - Sistem Absensi Wajah</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            margin: 0 auto;
+        }
+        #video {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .face-box {
+            position: absolute;
+            border: 3px solid #28a745;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .face-label {
+            position: absolute;
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .result-card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .btn-scan {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.3s ease;
+        }
+        .btn-scan:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .attendance-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .attendance-item {
+            border-left: 4px solid #28a745;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .confidence-bar {
+            height: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-graduation-cap"></i> AbsensiWajah
+            </a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Beranda</a>
+                <a class="nav-link active" href="/attendance"><i class="fas fa-camera"></i> Absensi</a>
+                <a class="nav-link" href="/dashboard"><i class="fas fa-chart-bar"></i> Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <div class="row">
+            <!-- Left Column: Webcam and Controls -->
+            <div class="col-lg-7">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-camera me-2"></i>Kamera Absensi</h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- Webcam Video -->
+                        <div class="video-container mb-4">
+                            <video id="video" autoplay playsinline></video>
+                            <canvas id="canvas" style="display: none;"></canvas>
+                        </div>
+                        
+                        <!-- Controls -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Mode Pengambilan:</label>
+                                    <select id="captureMode" class="form-select">
+                                        <option value="auto">Auto (Setiap 3 detik)</option>
+                                        <option value="manual">Manual (Klik Tombol)</option>
+                                        <option value="single">Single Capture</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label class="form-label">Kamera:</label>
+                                    <select id="cameraSelect" class="form-select">
+                                        <!-- Camera options will be populated by JavaScript -->
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-3 justify-content-center">
+                            <button id="startCamera" class="btn btn-success btn-lg">
+                                <i class="fas fa-play me-2"></i>Mulai Kamera
+                            </button>
+                            <button id="captureBtn" class="btn-scan" disabled>
+                                <i class="fas fa-camera me-2"></i>Ambil Absensi
+                            </button>
+                            <button id="stopCamera" class="btn btn-danger btn-lg">
+                                <i class="fas fa-stop me-2"></i>Stop
+                            </button>
+                        </div>
+                        
+                        <!-- Status -->
+                        <div class="alert alert-info mt-4" id="statusMessage">
+                            <i class="fas fa-info-circle me-2"></i>Klik "Mulai Kamera" untuk memulai
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Recent Attendance -->
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="fas fa-history me-2"></i>Absensi Terbaru</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="attendance-list" id="recentAttendance">
+                            <!-- Attendance items will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Results and Info -->
+            <div class="col-lg-5">
+                <!-- Recognition Result -->
+                <div class="card shadow mb-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0"><i class="fas fa-user-check me-2"></i>Hasil Pengenalan</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="recognitionResult" class="text-center py-4">
+                            <div class="display-1 text-muted">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <p class="text-muted mt-3">Belum ada hasil pengenalan</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Today's Attendance Stats -->
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Statistik Hari Ini</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="todayStats">
+                            <!-- Stats will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Instructions -->
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Panduan Absensi</h5>
+                    </div>
+                    <div class="card-body">
+                        <ol>
+                            <li>Pastikan wajah terlihat jelas di kamera</li>
+                            <li>Posisikan wajah di tengah frame</li>
+                            <li>Pastikan pencahayaan cukup</li>
+                            <li>Tunggu hingga nama muncul di layar</li>
+                            <li>Absensi akan tercatat otomatis</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // DOM Elements
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const startCameraBtn = document.getElementById('startCamera');
+        const captureBtn = document.getElementById('captureBtn');
+        const stopCameraBtn = document.getElementById('stopCamera');
+        const statusMessage = document.getElementById('statusMessage');
+        const recognitionResult = document.getElementById('recognitionResult');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const recentAttendance = document.getElementById('recentAttendance');
+        const todayStats = document.getElementById('todayStats');
+        
+        // Variables
+        let stream = null;
+        let captureInterval = null;
+        let isCameraActive = false;
+        const captureMode = document.getElementById('captureMode');
+        
+        // Initialize camera options
+        async function initCameraOptions() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                cameraSelect.innerHTML = '';
+                videoDevices.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Kamera ${index + 1}`;
+                    cameraSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Error getting camera devices:', error);
+            }
+        }
+        
+        // Start camera
+        async function startCamera() {
+            try {
+                const deviceId = cameraSelect.value;
+                const constraints = {
+                    video: {
+                        deviceId: deviceId ? { exact: deviceId } : undefined,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                video.srcObject = stream;
+                
+                isCameraActive = true;
+                startCameraBtn.disabled = true;
+                captureBtn.disabled = false;
+                stopCameraBtn.disabled = false;
+                
+                statusMessage.innerHTML = '<i class="fas fa-check-circle me-2 text-success"></i>Kamera aktif. Siap untuk absensi.';
+                statusMessage.className = 'alert alert-success';
+                
+                // Start auto-capture if mode is auto
+                if (captureMode.value === 'auto') {
+                    startAutoCapture();
+                }
+                
+            } catch (error) {
+                statusMessage.innerHTML = `<i class="fas fa-exclamation-triangle me-2 text-danger"></i>Error: ${error.message}`;
+                statusMessage.className = 'alert alert-danger';
+            }
+        }
+        
+        // Stop camera
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+            }
+            
+            isCameraActive = false;
+            startCameraBtn.disabled = false;
+            captureBtn.disabled = true;
+            stopCameraBtn.disabled = true;
+            
+            statusMessage.innerHTML = '<i class="fas fa-info-circle me-2"></i>Kamera dihentikan.';
+            statusMessage.className = 'alert alert-info';
+            
+            // Stop auto-capture
+            if (captureInterval) {
+                clearInterval(captureInterval);
+                captureInterval = null;
+            }
+        }
+        
+        // Start auto-capture
+        function startAutoCapture() {
+            if (captureInterval) {
+                clearInterval(captureInterval);
+            }
+            
+            captureInterval = setInterval(() => {
+                if (isCameraActive) {
+                    captureAndRecognize();
+                }
+            }, 3000); // Capture every 3 seconds
+        }
+        
+        // Capture image from video
+        function captureImage() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            return canvas.toDataURL('image/jpeg', 0.8);
+        }
+        
+        // Recognize face
+        async function recognizeFace(imageData) {
+            try {
+                const response = await fetch('/api/recognize', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ image: imageData })
+                });
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Recognition error:', error);
+                return { success: false, message: 'Network error' };
+            }
+        }
+        
+        // Capture and recognize
+        async function captureAndRecognize() {
+            if (!isCameraActive) return;
+            
+            // Show capturing status
+            statusMessage.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Mengambil foto dan mengenali wajah...';
+            statusMessage.className = 'alert alert-warning';
+            
+            // Capture image
+            const imageData = captureImage();
+            
+            // Recognize
+            const result = await recognizeFace(imageData);
+            
+            // Process result
+            if (result.success && result.results && result.results.length > 0) {
+                const recognition = result.results[0];
+                
+                if (recognition.recognized) {
+                    // Show success result
+                    const confidencePercent = Math.min(100, Math.max(0, recognition.confidence));
+                    
+                    recognitionResult.innerHTML = `
+                        <div class="text-center">
+                            <div class="display-1 text-success">
+                                <i class="fas fa-user-check"></i>
+                            </div>
+                            <h3 class="mt-3">${recognition.name}</h3>
+                            <p class="text-muted">NIM: ${recognition.nim}</p>
+                            
+                            <div class="mt-4">
+                                <h5>Confidence: ${confidencePercent.toFixed(1)}%</h5>
+                                <div class="confidence-bar">
+                                    <div class="confidence-fill" style="width: ${confidencePercent}%"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-3">
+                                <span class="badge bg-info">${recognition.lighting}</span>
+                                <span class="badge bg-success ms-2">Terverifikasi</span>
+                            </div>
+                            
+                            <div class="alert alert-success mt-3">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Absensi berhasil dicatat!
+                            </div>
+                        </div>
+                    `;
+                    
+                    statusMessage.innerHTML = `<i class="fas fa-check-circle me-2 text-success"></i>${recognition.name} berhasil diabsen!`;
+                    statusMessage.className = 'alert alert-success';
+                    
+                    // Refresh recent attendance
+                    loadRecentAttendance();
+                    loadTodayStats();
+                    
+                } else {
+                    // Show unknown face
+                    recognitionResult.innerHTML = `
+                        <div class="text-center">
+                            <div class="display-1 text-danger">
+                                <i class="fas fa-user-times"></i>
+                            </div>
+                            <h3 class="mt-3">Wajah Tidak Dikenali</h3>
+                            <p class="text-muted">Silakan daftarkan terlebih dahulu</p>
+                            <div class="mt-4">
+                                <a href="/register" class="btn btn-primary">
+                                    <i class="fas fa-user-plus me-2"></i>Daftarkan Mahasiswa
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                    
+                    statusMessage.innerHTML = '<i class="fas fa-exclamation-triangle me-2 text-warning"></i>Wajah tidak dikenali.';
+                    statusMessage.className = 'alert alert-warning';
+                }
+            } else {
+                // Show error
+                recognitionResult.innerHTML = `
+                    <div class="text-center">
+                        <div class="display-1 text-muted">
+                            <i class="fas fa-exclamation-circle"></i>
+                        </div>
+                        <h3 class="mt-3">Error</h3>
+                        <p class="text-muted">${result.message || 'Gagal mengenali wajah'}</p>
+                    </div>
+                `;
+                
+                statusMessage.innerHTML = `<i class="fas fa-exclamation-triangle me-2 text-danger"></i>${result.message || 'Error'}`;
+                statusMessage.className = 'alert alert-danger';
+            }
+        }
+        
+        // Load recent attendance
+        async function loadRecentAttendance() {
+            try {
+                const response = await fetch('/api/attendance/today');
+                const data = await response.json();
+                
+                if (data.success && data.attendance.length > 0) {
+                    let html = '';
+                    data.attendance.slice(0, 10).forEach(record => {
+                        const time = new Date(`${record.date} ${record.time}`).toLocaleTimeString('id-ID');
+                        html += `
+                            <div class="attendance-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">${record.name}</h6>
+                                        <small class="text-muted">NIM: ${record.nim}</small>
+                                    </div>
+                                    <div class="text-end">
+                                        <small class="text-muted">${time}</small>
+                                        <br>
+                                        <small class="text-success">${record.confidence}%</small>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    recentAttendance.innerHTML = html;
+                } else {
+                    recentAttendance.innerHTML = '<p class="text-center text-muted">Belum ada absensi hari ini</p>';
+                }
+            } catch (error) {
+                console.error('Error loading recent attendance:', error);
+            }
+        }
+        
+        // Load today's stats
+        async function loadTodayStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.stats;
+                    todayStats.innerHTML = `
+                        <div class="row text-center">
+                            <div class="col-6 mb-3">
+                                <div class="display-6 text-primary">${stats.today_attendance || 0}</div>
+                                <small class="text-muted">Hadir Hari Ini</small>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="display-6 text-success">${stats.registered_students || 0}</div>
+                                <small class="text-muted">Total Mahasiswa</small>
+                            </div>
+                        </div>
+                        <div class="progress mt-3" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar" 
+                                 style="width: ${stats.registered_students ? ((stats.today_attendance / stats.registered_students) * 100) : 0}%">
+                                ${stats.registered_students ? Math.round((stats.today_attendance / stats.registered_students) * 100) : 0}%
+                            </div>
+                        </div>
+                        <p class="mt-2 mb-0 text-center">
+                            <small>Persentase kehadiran hari ini</small>
+                        </p>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading stats:', error);
+            }
+        }
+        
+        // Event Listeners
+        startCameraBtn.addEventListener('click', startCamera);
+        stopCameraBtn.addEventListener('click', stopCamera);
+        captureBtn.addEventListener('click', captureAndRecognize);
+        
+        captureMode.addEventListener('change', function() {
+            if (captureInterval) {
+                clearInterval(captureInterval);
+                captureInterval = null;
+            }
+            
+            if (this.value === 'auto' && isCameraActive) {
+                startAutoCapture();
+            }
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initCameraOptions();
+            loadRecentAttendance();
+            loadTodayStats();
+            
+            // Enable camera button
+            startCameraBtn.disabled = false;
+        });
+        
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && isCameraActive) {
+                stopCamera();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Absensi - Sistem Absensi Wajah</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            border: none;
+        }
+        .btn-filter {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .stat-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-right: 15px;
+        }
+        .date-picker-custom {
+            border: 2px solid #667eea;
+            border-radius: 50px;
+            padding: 8px 15px;
+            text-align: center;
+            font-weight: 500;
+        }
+        .export-buttons {
+            display: flex;
+            gap: 10px;
+        }
+        .export-btn {
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-weight: 600;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .export-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        .dataTables_wrapper {
+            padding: 0;
+        }
+        table.dataTable {
+            border-collapse: collapse !important;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        table.dataTable thead th {
+            background: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+            font-weight: 600;
+        }
+        .badge-attendance {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-graduation-cap"></i> AbsensiWajah
+            </a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Beranda</a>
+                <a class="nav-link" href="/attendance"><i class="fas fa-camera"></i> Absensi</a>
+                <a class="nav-link" href="/dashboard"><i class="fas fa-chart-bar"></i> Dashboard</a>
+                <a class="nav-link active" href="/view_data"><i class="fas fa-database"></i> Data Absensi</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <!-- Page Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h1 class="h2 mb-1">Data Absensi Mahasiswa</h1>
+                        <p class="text-muted mb-0">Lihat dan kelola data absensi mahasiswa</p>
+                    </div>
+                    <div class="export-buttons">
+                        <button id="exportCSV" class="btn btn-success export-btn">
+                            <i class="fas fa-file-csv me-2"></i>Export CSV
+                        </button>
+                        <button id="exportJSON" class="btn btn-info export-btn">
+                            <i class="fas fa-file-code me-2"></i>Export JSON
+                        </button>
+                        <button id="printData" class="btn btn-primary export-btn">
+                            <i class="fas fa-print me-2"></i>Print
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-primary text-white">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="totalStudents">0</h3>
+                            <p class="text-muted mb-0">Total Mahasiswa</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-success text-white">
+                            <i class="fas fa-user-check"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="todayAttendance">0</h3>
+                            <p class="text-muted mb-0">Hadir Hari Ini</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-warning text-white">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <div>
+                            <h3 class="mb-0" id="totalRecords">0</h3>
+                            <p class="text-muted mb-0">Total Absensi</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="d-flex align-items-center">
+                        <div class="stat-icon bg-info text-white">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div>
+                            <h5 class="mb-0" id="currentDate">-</h5>
+                            <p class="text-muted mb-0">Tanggal Sekarang</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-filter me-2"></i>Filter Data</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Tanggal Mulai</label>
+                        <input type="date" id="startDate" class="form-control date-picker-custom">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Tanggal Akhir</label>
+                        <input type="date" id="endDate" class="form-control date-picker-custom">
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">NIM / Nama</label>
+                        <input type="text" id="searchInput" class="form-control" placeholder="Cari NIM atau nama...">
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filterToday" checked>
+                            <label class="form-check-label" for="filterToday">Hari Ini</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filterWeek">
+                            <label class="form-check-label" for="filterWeek">Minggu Ini</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="checkbox" id="filterMonth">
+                            <label class="form-check-label" for="filterMonth">Bulan Ini</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button id="applyFilter" class="btn-filter">
+                            <i class="fas fa-search me-2"></i>Terapkan Filter
+                        </button>
+                        <button id="resetFilter" class="btn btn-outline-secondary ms-2">
+                            <i class="fas fa-redo me-2"></i>Reset
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Data Table -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-table me-2"></i>Tabel Data Absensi</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table id="attendanceTable" class="table table-hover" style="width:100%">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>NIM</th>
+                                <th>Nama</th>
+                                <th>Tanggal</th>
+                                <th>Waktu</th>
+                                <th>Status</th>
+                                <th>Confidence</th>
+                                <th>Pencahayaan</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Data will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5 class="mb-3"><i class="fas fa-chart-bar me-2"></i>Statistik Kehadiran per Hari</h5>
+                    <canvas id="attendanceChart" height="200"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5 class="mb-3"><i class="fas fa-chart-pie me-2"></i>Distribusi Pencahayaan</h5>
+                    <canvas id="lightingChart" height="200"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Details -->
+    <div class="modal fade" id="detailModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Detail Absensi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Details will be loaded here -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/js/main.js"></script>
+    <script>
+        // Global variables
+        let attendanceData = [];
+        let dataTable = null;
+        let attendanceChart = null;
+        let lightingChart = null;
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadStatistics();
+            loadAttendanceData();
+            setupEventListeners();
+            setupCharts();
+            updateCurrentDate();
+        });
+
+        // Load statistics
+        async function loadStatistics() {
+            try {
+                const stats = await AttendanceManager.getStatistics();
+                if (stats.success) {
+                    document.getElementById('totalStudents').textContent = 
+                        stats.stats.registered_students || 0;
+                    document.getElementById('todayAttendance').textContent = 
+                        stats.stats.today_attendance || 0;
+                    document.getElementById('totalRecords').textContent = 
+                        stats.stats.total_students || 0;
+                }
+            } catch (error) {
+                console.error('Error loading statistics:', error);
+            }
+        }
+
+        // Load attendance data
+        async function loadAttendanceData(filter = {}) {
+            try {
+                Utils.showLoading('Memuat data absensi...');
+                
+                // Get today's date
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Default to today's data
+                let data;
+                if (filter.date) {
+                    data = await AttendanceManager.getAttendanceByDate(filter.date);
+                } else {
+                    data = await AttendanceManager.getAttendanceByDate(today);
+                }
+                
+                if (data.success) {
+                    attendanceData = data.attendance;
+                    renderTable(attendanceData);
+                    updateCharts(attendanceData);
+                    
+                    Utils.showNotification(`Data berhasil dimuat: ${attendanceData.length} records`, 'success');
+                } else {
+                    Utils.showNotification('Gagal memuat data absensi', 'danger');
+                }
+                
+                Utils.hideLoading();
+                
+            } catch (error) {
+                Utils.hideLoading();
+                console.error('Error loading attendance data:', error);
+                Utils.showNotification('Terjadi kesalahan saat memuat data', 'danger');
+            }
+        }
+
+        // Render table
+        function renderTable(data) {
+            const tableBody = document.getElementById('tableBody');
+            
+            if (!data || data.length === 0) {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="9" class="text-center py-4">
+                            <div class="text-muted">
+                                <i class="fas fa-database fa-2x mb-3"></i>
+                                <p>Tidak ada data absensi</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            data.forEach((item, index) => {
+                const time = new Date(`${item.date} ${item.time}`).toLocaleTimeString('id-ID');
+                const dateFormatted = new Date(item.date).toLocaleDateString('id-ID', {
+                    weekday: 'short',
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric'
+                });
+                
+                // Determine lighting badge color
+                let lightingColor = 'secondary';
+                if (item.lighting_condition) {
+                    const lighting = item.lighting_condition.toLowerCase();
+                    if (lighting.includes('gelap')) lightingColor = 'dark';
+                    else if (lighting.includes('normal')) lightingColor = 'success';
+                    else if (lighting.includes('terang')) lightingColor = 'warning';
+                }
+                
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><strong>${item.nim}</strong></td>
+                        <td>${item.name}</td>
+                        <td>${dateFormatted}</td>
+                        <td>${time}</td>
+                        <td>
+                            <span class="badge bg-success badge-attendance">
+                                ${item.status || 'Hadir'}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="progress flex-grow-1" style="height: 8px;">
+                                    <div class="progress-bar ${item.confidence > 80 ? 'bg-success' : item.confidence > 60 ? 'bg-warning' : 'bg-danger'}" 
+                                         role="progressbar" 
+                                         style="width: ${item.confidence || 0}%">
+                                    </div>
+                                </div>
+                                <span class="ms-2">${item.confidence || 0}%</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="badge bg-${lightingColor}">
+                                ${item.lighting_condition || 'Tidak ada data'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info view-detail" 
+                                    data-id="${item.id}"
+                                    title="Lihat Detail">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tableBody.innerHTML = html;
+            
+            // Initialize DataTable if not already
+            if (!dataTable) {
+                dataTable = $('#attendanceTable').DataTable({
+                    language: {
+                        url: '//cdn.datatables.net/plug-ins/1.11.5/i18n/id.json'
+                    },
+                    pageLength: 10,
+                    lengthMenu: [10, 25, 50, 100],
+                    order: [[3, 'desc'], [4, 'desc']] // Sort by date then time
+                });
+            } else {
+                dataTable.clear().rows.add($(html)).draw();
+            }
+            
+            // Add event listeners for detail buttons
+            document.querySelectorAll('.view-detail').forEach(button => {
+                button.addEventListener('click', function() {
+                    const recordId = this.getAttribute('data-id');
+                    showDetailModal(recordId);
+                });
+            });
+        }
+
+        // Show detail modal
+        function showDetailModal(recordId) {
+            const record = attendanceData.find(item => item.id == recordId);
+            if (!record) return;
+            
+            const time = new Date(`${record.date} ${record.time}`).toLocaleTimeString('id-ID');
+            const dateFormatted = new Date(record.date).toLocaleDateString('id-ID', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            
+            let modalHtml = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Informasi Mahasiswa</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th width="40%">NIM</th>
+                                <td>${record.nim}</td>
+                            </tr>
+                            <tr>
+                                <th>Nama</th>
+                                <td>${record.name}</td>
+                            </tr>
+                            <tr>
+                                <th>Face ID</th>
+                                <td>${record.face_id || '-'}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Informasi Absensi</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th width="40%">Tanggal</th>
+                                <td>${dateFormatted}</td>
+                            </tr>
+                            <tr>
+                                <th>Waktu</th>
+                                <td>${time}</td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td><span class="badge bg-success">${record.status || 'Hadir'}</span></td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Detail Pengenalan</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th width="40%">Confidence</th>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="progress flex-grow-1" style="height: 10px;">
+                                            <div class="progress-bar ${record.confidence > 80 ? 'bg-success' : record.confidence > 60 ? 'bg-warning' : 'bg-danger'}" 
+                                                 role="progressbar" 
+                                                 style="width: ${record.confidence || 0}%">
+                                            </div>
+                                        </div>
+                                        <span class="ms-2">${record.confidence || 0}%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Pencahayaan</th>
+                                <td>
+                                    <span class="badge ${record.lighting_condition ? 
+                                        (record.lighting_condition.toLowerCase().includes('gelap') ? 'bg-dark' : 
+                                         record.lighting_condition.toLowerCase().includes('normal') ? 'bg-success' : 
+                                         'bg-warning') : 'bg-secondary'}">
+                                        ${record.lighting_condition || 'Tidak ada data'}
+                                    </span>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Sistem</h6>
+                        <table class="table table-sm">
+                            <tr>
+                                <th width="40%">Record ID</th>
+                                <td>${record.id}</td>
+                            </tr>
+                            <tr>
+                                <th>Dibuat Pada</th>
+                                <td>${Utils.formatDateTime(record.created_at)}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('modalBody').innerHTML = modalHtml;
+            const modal = new bootstrap.Modal(document.getElementById('detailModal'));
+            modal.show();
+        }
+
+        // Setup charts
+        function setupCharts() {
+            const ctx1 = document.getElementById('attendanceChart').getContext('2d');
+            attendanceChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Jumlah Hadir',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Jumlah Mahasiswa'
+                            }
+                        }
+                    }
+                }
+            });
+
+            const ctx2 = document.getElementById('lightingChart').getContext('2d');
+            lightingChart = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Gelap', 'Normal', 'Terang'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: [
+                            '#343a40',
+                            '#28a745',
+                            '#ffc107'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update charts with data
+        function updateCharts(data) {
+            if (!data || data.length === 0) return;
+            
+            // Prepare data for attendance chart (group by date)
+            const attendanceByDate = {};
+            data.forEach(record => {
+                if (!attendanceByDate[record.date]) {
+                    attendanceByDate[record.date] = 0;
+                }
+                attendanceByDate[record.date]++;
+            });
+            
+            // Sort dates
+            const dates = Object.keys(attendanceByDate).sort();
+            const attendanceCounts = dates.map(date => attendanceByDate[date]);
+            
+            // Update attendance chart
+            attendanceChart.data.labels = dates.map(date => 
+                new Date(date).toLocaleDateString('id-ID', { month: 'short', day: 'numeric' })
+            );
+            attendanceChart.data.datasets[0].data = attendanceCounts;
+            attendanceChart.update();
+            
+            // Prepare data for lighting chart
+            const lightingCounts = { 'Gelap': 0, 'Normal': 0, 'Terang': 0 };
+            data.forEach(record => {
+                if (record.lighting_condition) {
+                    const lighting = record.lighting_condition.toLowerCase();
+                    if (lighting.includes('gelap')) lightingCounts['Gelap']++;
+                    else if (lighting.includes('normal')) lightingCounts['Normal']++;
+                    else if (lighting.includes('terang')) lightingCounts['Terang']++;
+                }
+            });
+            
+            // Update lighting chart
+            lightingChart.data.datasets[0].data = [
+                lightingCounts['Gelap'],
+                lightingCounts['Normal'],
+                lightingCounts['Terang']
+            ];
+            lightingChart.update();
+        }
+
+        // Update current date
+        function updateCurrentDate() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('currentDate').textContent = 
+                now.toLocaleDateString('id-ID', options);
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Apply filter
+            document.getElementById('applyFilter').addEventListener('click', function() {
+                const startDate = document.getElementById('startDate').value;
+                const endDate = document.getElementById('endDate').value;
+                const search = document.getElementById('searchInput').value;
+                
+                let filter = {};
+                
+                if (startDate && endDate) {
+                    filter.dateRange = { start: startDate, end: endDate };
+                }
+                
+                if (search) {
+                    filter.search = search;
+                }
+                
+                // Handle checkbox filters
+                if (document.getElementById('filterToday').checked) {
+                    filter.date = new Date().toISOString().split('T')[0];
+                } else if (document.getElementById('filterWeek').checked) {
+                    // Get start of week (Monday)
+                    const today = new Date();
+                    const day = today.getDay();
+                    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+                    const monday = new Date(today.setDate(diff));
+                    filter.dateRange = { 
+                        start: monday.toISOString().split('T')[0],
+                        end: new Date().toISOString().split('T')[0]
+                    };
+                } else if (document.getElementById('filterMonth').checked) {
+                    // Get start of month
+                    const today = new Date();
+                    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                    filter.dateRange = { 
+                        start: firstDay.toISOString().split('T')[0],
+                        end: today.toISOString().split('T')[0]
+                    };
+                }
+                
+                loadAttendanceData(filter);
+            });
+
+            // Reset filter
+            document.getElementById('resetFilter').addEventListener('click', function() {
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+                document.getElementById('searchInput').value = '';
+                document.getElementById('filterToday').checked = true;
+                document.getElementById('filterWeek').checked = false;
+                document.getElementById('filterMonth').checked = false;
+                
+                loadAttendanceData();
+            });
+
+            // Export CSV
+            document.getElementById('exportCSV').addEventListener('click', function() {
+                if (attendanceData.length > 0) {
+                    const filename = `absensi_${new Date().toISOString().split('T')[0]}.csv`;
+                    DataExporter.exportToCSV(attendanceData, filename);
+                } else {
+                    Utils.showNotification('Tidak ada data untuk diexport', 'warning');
+                }
+            });
+
+            // Export JSON
+            document.getElementById('exportJSON').addEventListener('click', function() {
+                if (attendanceData.length > 0) {
+                    const filename = `absensi_${new Date().toISOString().split('T')[0]}.json`;
+                    DataExporter.exportToJSON(attendanceData, filename);
+                } else {
+                    Utils.showNotification('Tidak ada data untuk diexport', 'warning');
+                }
+            });
+
+            // Print
+            document.getElementById('printData').addEventListener('click', function() {
+                window.print();
+            });
+
+            // Search input
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    document.getElementById('applyFilter').click();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

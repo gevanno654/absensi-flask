@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar Mahasiswa Baru - Sistem Absensi Wajah</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .register-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 25px;
+        }
+        .video-preview {
+            width: 100%;
+            height: 300px;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .video-preview video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .captured-image {
+            width: 100%;
+            height: 300px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            display: none;
+        }
+        .captured-image img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .btn-register {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .btn-register:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .step {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            position: relative;
+        }
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: #e9ecef;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+            color: #6c757d;
+        }
+        .step.active .step-number {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .step.completed .step-number {
+            background: #28a745;
+            color: white;
+        }
+        .step-line {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            right: -50%;
+            height: 2px;
+            background: #e9ecef;
+            z-index: -1;
+        }
+        .step:last-child .step-line {
+            display: none;
+        }
+        .form-control:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 0.25rem rgba(102, 126, 234, 0.25);
+        }
+        .guide-list {
+            list-style: none;
+            padding: 0;
+        }
+        .guide-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .guide-list li:last-child {
+            border-bottom: none;
+        }
+        .guide-list i {
+            color: #28a745;
+            margin-right: 10px;
+        }
+        #captureCanvas {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-graduation-cap"></i> AbsensiWajah
+            </a>
+            <div class="navbar-nav">
+                <a class="nav-link" href="/"><i class="fas fa-home"></i> Beranda</a>
+                <a class="nav-link active" href="/register"><i class="fas fa-user-plus"></i> Daftar Mahasiswa</a>
+                <a class="nav-link" href="/attendance"><i class="fas fa-camera"></i> Absensi</a>
+                <a class="nav-link" href="/dashboard"><i class="fas fa-chart-bar"></i> Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-5">
+        <div class="register-container">
+            <div class="card">
+                <div class="card-header text-center">
+                    <h2 class="mb-0"><i class="fas fa-user-plus me-2"></i>Pendaftaran Mahasiswa Baru</h2>
+                    <p class="mb-0 mt-2">Daftarkan wajah mahasiswa untuk sistem absensi otomatis</p>
+                </div>
+                
+                <div class="card-body p-4">
+                    <!-- Hidden canvas for capturing -->
+                    <canvas id="captureCanvas" style="display: none;"></canvas>
+                    
+                    <!-- Step Indicator -->
+                    <div class="step-indicator">
+                        <div class="step active" id="step1">
+                            <div class="step-number">1</div>
+                            <div class="step-text">Data Mahasiswa</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step" id="step2">
+                            <div class="step-number">2</div>
+                            <div class="step-text">Ambil Foto</div>
+                            <div class="step-line"></div>
+                        </div>
+                        <div class="step" id="step3">
+                            <div class="step-number">3</div>
+                            <div class="step-text">Konfirmasi</div>
+                            <div class="step-line"></div>
+                        </div>
+                    </div>
+
+                    <!-- Step 1: Student Data Form -->
+                    <div id="step1Content" class="step-content">
+                        <h4 class="mb-4">Data Mahasiswa</h4>
+                        
+                        <form id="studentForm">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="nim" class="form-label">NIM *</label>
+                                    <input type="text" class="form-control" id="nim" 
+                                           placeholder="Contoh: 22081010001" required>
+                                    <div class="form-text">Masukkan NIM mahasiswa (10-15 digit)</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="name" class="form-label">Nama Lengkap *</label>
+                                    <input type="text" class="form-control" id="name" 
+                                           placeholder="Contoh: Andi Wijaya" required>
+                                    <div class="form-text">Masukkan nama lengkap mahasiswa</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-4">
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">Email (Opsional)</label>
+                                    <input type="email" class="form-control" id="email" 
+                                           placeholder="contoh@email.com">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="phone" class="form-label">Telepon (Opsional)</label>
+                                    <input type="tel" class="form-control" id="phone" 
+                                           placeholder="081234567890">
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <a href="/" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-2"></i>Kembali
+                                </a>
+                                <button type="button" class="btn btn-register" id="nextToStep2">
+                                    Selanjutnya <i class="fas fa-arrow-right ms-2"></i>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Step 2: Photo Capture -->
+                    <div id="step2Content" class="step-content" style="display: none;">
+                        <h4 class="mb-4">Ambil Foto Wajah</h4>
+                        
+                        <div class="row">
+                            <!-- Left Column: Camera -->
+                            <div class="col-md-7">
+                                <div class="video-preview">
+                                    <video id="cameraPreview" autoplay playsinline></video>
+                                </div>
+                                
+                                <div class="captured-image" id="capturedImagePreview">
+                                    <img id="capturedImage" alt="Captured Face">
+                                </div>
+                                
+                                <div class="row mb-4">
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="form-label">Kamera:</label>
+                                            <select id="cameraSelect" class="form-select">
+                                                <option value="">Memuat kamera...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-group">
+                                            <label class="form-label">Posisi Wajah:</label>
+                                            <select id="facePosition" class="form-select">
+                                                <option value="front">Depan (Face Forward)</option>
+                                                <option value="left">Kiri (Left Profile)</option>
+                                                <option value="right">Kanan (Right Profile)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="d-flex gap-3 justify-content-center mb-4">
+                                    <button id="startCameraBtn" class="btn btn-success">
+                                        <i class="fas fa-play me-2"></i>Mulai Kamera
+                                    </button>
+                                    <button id="captureBtn" class="btn btn-primary" disabled>
+                                        <i class="fas fa-camera me-2"></i>Ambil Foto
+                                    </button>
+                                    <button id="retakeBtn" class="btn btn-warning" style="display: none;">
+                                        <i class="fas fa-redo me-2"></i>Ambil Ulang
+                                    </button>
+                                </div>
+                                
+                                <div class="alert alert-info" id="captureStatus">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    Mulai kamera dan ambil foto wajah yang jelas
+                                </div>
+                            </div>
+                            
+                            <!-- Right Column: Instructions -->
+                            <div class="col-md-5">
+                                <div class="card bg-light">
+                                    <div class="card-body">
+                                        <h5><i class="fas fa-lightbulb me-2 text-warning"></i>Panduan Foto Wajah</h5>
+                                        <ul class="guide-list mt-3">
+                                            <li><i class="fas fa-check-circle"></i> Pastikan wajah terlihat jelas</li>
+                                            <li><i class="fas fa-check-circle"></i> Pencahayaan cukup dan merata</li>
+                                            <li><i class="fas fa-check-circle"></i> Wajah di tengah frame</li>
+                                            <li><i class="fas fa-check-circle"></i> Ekspresi netral (tidak tertawa/marah)</li>
+                                            <li><i class="fas fa-check-circle"></i> Tanpa kacamata hitam</li>
+                                            <li><i class="fas fa-check-circle"></i> Background polos dan tidak ramai</li>
+                                            <li><i class="fas fa-check-circle"></i> Tidak ada topi atau penutup kepala</li>
+                                        </ul>
+                                        
+                                        <div class="mt-4">
+                                            <h6>Foto Contoh:</h6>
+                                            <img src="https://via.placeholder.com/300x200/e9ecef/6c757d?text=Contoh+Wajah+Jelas" 
+                                                 alt="Contoh Wajah" class="img-fluid rounded">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between mt-4">
+                            <button type="button" class="btn btn-secondary" id="backToStep1">
+                                <i class="fas fa-arrow-left me-2"></i>Kembali
+                            </button>
+                            <button type="button" class="btn btn-register" id="nextToStep3" disabled>
+                                Lanjutkan <i class="fas fa-arrow-right ms-2"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Step 3: Confirmation -->
+                    <div id="step3Content" class="step-content" style="display: none;">
+                        <h4 class="mb-4">Konfirmasi Pendaftaran</h4>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-info text-white">
+                                        <h5 class="mb-0">Data Mahasiswa</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <table class="table table-borderless">
+                                            <tr>
+                                                <th width="40%">NIM:</th>
+                                                <td id="confirmNIM">-</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Nama:</th>
+                                                <td id="confirmName">-</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Email:</th>
+                                                <td id="confirmEmail">-</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Telepon:</th>
+                                                <td id="confirmPhone">-</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card mb-4">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">Foto Wajah</h5>
+                                    </div>
+                                    <div class="card-body text-center">
+                                        <div id="finalImagePreview" style="width: 200px; height: 200px; margin: 0 auto;">
+                                            <img id="finalImage" alt="Final Face" 
+                                                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 10px;">
+                                        </div>
+                                        <p class="mt-3 mb-0">
+                                            <small class="text-muted">Foto akan digunakan untuk training model AI</small>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Perhatian:</strong> Pastikan semua data sudah benar. 
+                            Data yang sudah terdaftar tidak dapat diubah.
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <button type="button" class="btn btn-secondary" id="backToStep2">
+                                <i class="fas fa-arrow-left me-2"></i>Kembali
+                            </button>
+                            <button type="button" class="btn btn-register" id="submitRegistration">
+                                <i class="fas fa-check me-2"></i>Daftarkan Mahasiswa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/webcam.js"></script>
+    <script>
+        // Check browser support before loading page
+        function checkBrowserSupport() {
+            const browserInfo = WebcamManager.getBrowserInfo();
+            
+            // Check if we're on HTTPS or localhost
+            const isSecure = browserInfo.isSecureContext || 
+                            browserInfo.host.includes('localhost') || 
+                            browserInfo.host.includes('127.0.0.1');
+            
+            if (!isSecure) {
+                alert('⚠️ PERHATIAN!\n\nSistem absensi memerlukan HTTPS atau localhost untuk mengakses kamera.\n\n' +
+                    'Silakan akses via:\n' +
+                    '✅ http://localhost:5000 (di komputer yang sama)\n' +
+                    '❌ http://192.168.x.x:5000 (tidak akan bekerja di Android)');
+                return false;
+            }
+            
+            // Check browser support
+            if (!WebcamManager.isSupported()) {
+                alert('⚠️ BROWSER TIDAK SUPPORT!\n\nBrowser Anda tidak mendukung akses kamera.\n\n' +
+                    'Silakan gunakan:\n' +
+                    '• Chrome 53+ (Android/iOS/Desktop)\n' +
+                    '• Firefox 36+\n' +
+                    '• Safari 11+ (iOS/macOS)');
+                return false;
+            }
+            
+            return true;
+        }
+
+        // Run check when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!checkBrowserSupport()) {
+                // Disable camera buttons
+                const startCameraBtn = document.getElementById('startCameraBtn');
+                const captureBtn = document.getElementById('captureBtn');
+                
+                if (startCameraBtn) startCameraBtn.disabled = true;
+                if (captureBtn) captureBtn.disabled = true;
+                
+                // Show warning
+                const captureStatus = document.getElementById('captureStatus');
+                if (captureStatus) {
+                    captureStatus.innerHTML = 
+                        '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>' +
+                        'Browser tidak mendukung akses kamera. Silakan gunakan Chrome atau Firefox.';
+                    captureStatus.className = 'alert alert-danger';
+                }
+            }
+        });
+
+        // Global variables
+        let webcamManager = null;
+        let currentStep = 1;
+        let capturedImageData = null;
+        let studentData = {};
+
+        // DOM Elements
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3 = document.getElementById('step3');
+        
+        const step1Content = document.getElementById('step1Content');
+        const step2Content = document.getElementById('step2Content');
+        const step3Content = document.getElementById('step3Content');
+        
+        const nimInput = document.getElementById('nim');
+        const nameInput = document.getElementById('name');
+        const emailInput = document.getElementById('email');
+        const phoneInput = document.getElementById('phone');
+        
+        const cameraSelect = document.getElementById('cameraSelect');
+        const captureBtn = document.getElementById('captureBtn');
+        const retakeBtn = document.getElementById('retakeBtn');
+        const startCameraBtn = document.getElementById('startCameraBtn');
+        const captureStatus = document.getElementById('captureStatus');
+        const capturedImagePreview = document.getElementById('capturedImagePreview');
+        const capturedImage = document.getElementById('capturedImage');
+        const finalImage = document.getElementById('finalImage');
+        const captureCanvas = document.getElementById('captureCanvas');
+        
+        const confirmNIM = document.getElementById('confirmNIM');
+        const confirmName = document.getElementById('confirmName');
+        const confirmEmail = document.getElementById('confirmEmail');
+        const confirmPhone = document.getElementById('confirmPhone');
+
+        // Step Navigation Functions
+        function goToStep(step) {
+            // Hide all step contents
+            step1Content.style.display = 'none';
+            step2Content.style.display = 'none';
+            step3Content.style.display = 'none';
+            
+            // Remove active class from all steps
+            step1.classList.remove('active', 'completed');
+            step2.classList.remove('active', 'completed');
+            step3.classList.remove('active', 'completed');
+            
+            // Update current step
+            currentStep = step;
+            
+            // Show target step content
+            if (step === 1) {
+                step1Content.style.display = 'block';
+                step1.classList.add('active');
+            } else if (step === 2) {
+                step2Content.style.display = 'block';
+                step1.classList.add('completed');
+                step2.classList.add('active');
+                
+                // Initialize webcam if not already
+                if (!webcamManager) {
+                    initWebcam();
+                }
+            } else if (step === 3) {
+                step3Content.style.display = 'block';
+                step1.classList.add('completed');
+                step2.classList.add('completed');
+                step3.classList.add('active');
+                
+                // Update confirmation data
+                updateConfirmationData();
+            }
+        }
+
+        // Initialize webcam
+        async function initWebcam() {
+            try {
+                if (!WebcamManager.isSupported()) {
+                    captureStatus.innerHTML = 
+                        '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>' +
+                        'Browser tidak mendukung akses kamera.';
+                    captureStatus.className = 'alert alert-danger';
+                    return;
+                }
+                
+                // Create webcam manager with correct canvas ID
+                webcamManager = new WebcamManager('cameraPreview', 'captureCanvas');
+                
+                // Load camera devices
+                await webcamManager.loadCameraDevices();
+                webcamManager.updateCameraSelect('cameraSelect');
+                
+                // Enable start camera button
+                startCameraBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('Failed to initialize webcam:', error);
+                captureStatus.innerHTML = 
+                    '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>' +
+                    `Error: ${error.message}`;
+                captureStatus.className = 'alert alert-danger';
+            }
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                Utils.showLoading('Memulai kamera...');
+                
+                const deviceId = cameraSelect.value;
+                await webcamManager.start(deviceId);
+                
+                startCameraBtn.disabled = true;
+                captureBtn.disabled = false;
+                captureStatus.innerHTML = 
+                    '<i class="fas fa-check-circle me-2 text-success"></i>' +
+                    'Kamera aktif. Klik "Ambil Foto" untuk mengambil gambar.';
+                captureStatus.className = 'alert alert-success';
+                
+                // Show video, hide captured image
+                document.querySelector('.video-preview').style.display = 'block';
+                capturedImagePreview.style.display = 'none';
+                
+                Utils.hideLoading();
+                
+            } catch (error) {
+                Utils.hideLoading();
+                captureStatus.innerHTML = 
+                    '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>' +
+                    `Gagal memulai kamera: ${error.message}`;
+                captureStatus.className = 'alert alert-danger';
+            }
+        }
+
+        // Simple capture function
+        function capturePhotoSimple() {
+            try {
+                Utils.showLoading('Mengambil foto...');
+                
+                const video = document.getElementById('cameraPreview');
+                const canvas = document.getElementById('captureCanvas');
+                const context = canvas.getContext('2d');
+                
+                // Set canvas dimensions to match video
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                
+                // Draw current video frame to canvas
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                
+                // Convert to data URL
+                capturedImageData = canvas.toDataURL('image/jpeg', 0.8);
+                capturedImage.src = capturedImageData;
+                
+                // Show captured image, hide video
+                document.querySelector('.video-preview').style.display = 'none';
+                capturedImagePreview.style.display = 'block';
+                
+                // Enable retake and next buttons
+                retakeBtn.style.display = 'inline-block';
+                document.getElementById('nextToStep3').disabled = false;
+                
+                captureStatus.innerHTML = 
+                    '<i class="fas fa-check-circle me-2 text-success"></i>' +
+                    'Foto berhasil diambil. Klik "Ambil Ulang" jika tidak puas.';
+                captureStatus.className = 'alert alert-success';
+                
+                Utils.hideLoading();
+                
+                return true;
+                
+            } catch (error) {
+                Utils.hideLoading();
+                console.error('Capture error:', error);
+                captureStatus.innerHTML = 
+                    '<i class="fas fa-exclamation-triangle me-2 text-danger"></i>' +
+                    `Gagal mengambil foto: ${error.message}`;
+                captureStatus.className = 'alert alert-danger';
+                return false;
+            }
+        }
+
+        // Retake photo
+        function retakePhoto() {
+            // Show video, hide captured image
+            document.querySelector('.video-preview').style.display = 'block';
+            capturedImagePreview.style.display = 'none';
+            
+            // Reset buttons
+            retakeBtn.style.display = 'none';
+            document.getElementById('nextToStep3').disabled = true;
+            
+            captureStatus.innerHTML = 
+                '<i class="fas fa-info-circle me-2"></i>' +
+                'Kamera aktif. Klik "Ambil Foto" untuk mengambil gambar.';
+            captureStatus.className = 'alert alert-info';
+            
+            capturedImageData = null;
+        }
+
+        // Update confirmation data
+        function updateConfirmationData() {
+            confirmNIM.textContent = studentData.nim;
+            confirmName.textContent = studentData.name;
+            confirmEmail.textContent = studentData.email || '-';
+            confirmPhone.textContent = studentData.phone || '-';
+            
+            if (capturedImageData) {
+                finalImage.src = capturedImageData;
+            }
+        }
+
+        // Validate step 1
+        function validateStep1() {
+            const nim = nimInput.value.trim();
+            const name = nameInput.value.trim();
+            
+            if (!nim) {
+                Utils.showNotification('NIM harus diisi', 'warning');
+                nimInput.focus();
+                return false;
+            }
+            
+            if (!Utils.validateNIM(nim)) {
+                Utils.showNotification('Format NIM tidak valid (10-15 digit)', 'warning');
+                nimInput.focus();
+                return false;
+            }
+            
+            if (!name) {
+                Utils.showNotification('Nama harus diisi', 'warning');
+                nameInput.focus();
+                return false;
+            }
+            
+            if (!Utils.validateName(name)) {
+                Utils.showNotification('Nama harus 2-100 karakter', 'warning');
+                nameInput.focus();
+                return false;
+            }
+            
+            // Save student data
+            studentData = {
+                nim: nim,
+                name: name,
+                email: emailInput.value.trim(),
+                phone: phoneInput.value.trim()
+            };
+            
+            return true;
+        }
+
+        // Submit registration
+        async function submitRegistration() {
+            if (!capturedImageData) {
+                Utils.showNotification('Silakan ambil foto terlebih dahulu', 'warning');
+                return;
+            }
+            
+            try {
+                Utils.showLoading('Mendaftarkan mahasiswa...');
+                
+                const result = await AttendanceManager.registerStudent(
+                    studentData.nim,
+                    studentData.name,
+                    capturedImageData
+                );
+                
+                Utils.hideLoading();
+                
+                if (result.success) {
+                    Utils.showNotification(
+                        `Mahasiswa ${studentData.name} berhasil didaftarkan!`,
+                        'success',
+                        5000
+                    );
+                    
+                    // Reset form and redirect
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 2000);
+                    
+                } else {
+                    Utils.showNotification(result.message || 'Gagal mendaftarkan mahasiswa', 'danger');
+                }
+                
+            } catch (error) {
+                Utils.hideLoading();
+                Utils.showNotification('Terjadi kesalahan: ' + error.message, 'danger');
+            }
+        }
+
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Step navigation
+            document.getElementById('nextToStep2').addEventListener('click', () => {
+                if (validateStep1()) {
+                    goToStep(2);
+                }
+            });
+            
+            document.getElementById('nextToStep3').addEventListener('click', () => {
+                if (capturedImageData) {
+                    goToStep(3);
+                } else {
+                    Utils.showNotification('Silakan ambil foto terlebih dahulu', 'warning');
+                }
+            });
+            
+            document.getElementById('backToStep1').addEventListener('click', () => {
+                goToStep(1);
+            });
+            
+            document.getElementById('backToStep2').addEventListener('click', () => {
+                goToStep(2);
+            });
+            
+            // Camera controls
+            startCameraBtn.addEventListener('click', startCamera);
+            captureBtn.addEventListener('click', capturePhotoSimple);
+            retakeBtn.addEventListener('click', retakePhoto);
+            
+            // Camera selection
+            cameraSelect.addEventListener('change', function() {
+                if (webcamManager && webcamManager.isActive) {
+                    startCamera();
+                }
+            });
+            
+            // Submit registration
+            document.getElementById('submitRegistration').addEventListener('click', submitRegistration);
+            
+            // Enter key in form
+            nimInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (validateStep1()) {
+                        goToStep(2);
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
